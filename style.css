@@ -1,0 +1,37 @@
+:root {
+    --bg-body: #0d1117; 
+    --bg-nav: #161b22; 
+    --card: #1c2128;
+    --yellow: #fcd535; 
+    --green: #2ebd85; 
+    --red: #ff4d4d;
+    --gray: #848e9c; 
+    --border: rgba(255,255,255,0.1);
+    --grad-yellow: linear-gradient(135deg, #fcd535, #f7b500);
+}
+
+* { box-sizing: border-box; }
+body { 
+    margin: 0; 
+    background: var(--bg-body); 
+    font-family: 'Inter', sans-serif; 
+    color: white; 
+    overflow-x: hidden; 
+}
+
+/* Structure */
+.container { max-width: 480px; margin: auto; padding: 15px; }
+header { background: var(--bg-nav); padding: 18px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+
+/* Elements */
+.solde-card { text-align: center; padding: 35px 20px; background: radial-gradient(circle at top right, #1c2128, #0d1117); border-radius: 28px; margin-bottom: 25px; border: 1px solid var(--border); }
+.solde-amount { font-size: 38px; font-weight: 800; margin: 8px 0; letter-spacing: -1px; }
+
+.btn-valider { width: 100%; background: var(--grad-yellow); border: none; padding: 18px; border-radius: 14px; font-weight: 800; cursor: pointer; color: black; margin-top: 15px; font-size: 16px; }
+.styled-input { background: var(--bg-body); border: 1px solid var(--border); border-radius: 12px; padding: 14px; color: white; width: 100%; outline: none; margin-top: 5px; }
+
+/* Modal & Sidebar */
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 5000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(10px); }
+.sidebar { position: fixed; top: 0; right: -100%; width: 80%; max-width: 320px; height: 100%; background: var(--bg-nav); z-index: 2000; transition: 0.4s; padding: 30px; }
+.sidebar.active { right: 0; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; z-index: 1500; }
