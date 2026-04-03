@@ -25,7 +25,7 @@
         </h1>
         <input type="email" id="auth-email" class="styled-input" placeholder="Adresse Email">
         <input type="password" id="auth-password" class="styled-input" placeholder="Mot de passe" style="margin-top:15px;">
-        <button class="btn-valider" onclick="handleLogin()">Se connecter</button>
+        <button class="btn-valider" id="btn-login" onclick="handleLogin()">Se connecter</button>
         <p id="auth-error" style="color:var(--red); font-size:13px; margin-top:10px; display:none;"></p>
     </div>
 </div>
@@ -73,7 +73,7 @@
     <!-- Données cachées utilisées par le JS pour remplir le modal profil -->
     <span id="side-name"  style="display:none;">Mpanjifa</span>
     <span id="side-id"    style="display:none;">TK-0000</span>
-    <span id="side-email" style="display:none;">email@example.com</span>
+    <span id="side-email" style="display:none;"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="0c69616d65604c69746d617c6069226f6361">[email&#160;protected]</a></span>
     <span id="side-phone" style="display:none;">Tsy misy laharana</span>
 </div>
 
@@ -257,12 +257,3 @@
         </div>
         <div style="text-align:center; padding-top:20px; border-top:1px solid var(--border); font-size:11px; color:var(--gray);">
             © 2026 TakaloCash Madagascar. Tous droits réservés.
-        </div>
-    </div>
-</footer>
-
-<!-- Script principal (après le DOM) -->
-<script src="app.js"></script>
-
-</body>
-                </html>
