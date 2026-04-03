@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TakaloCash Premium</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div id="auth-container"> </div>
+
+<header id="nav-header" style="display:none;">
+    <div class="header-content">
+        <div id="header-left" onclick="showPage('home')">TAKALOCASH</div>
+        <img src="https://via.placeholder.com/32" id="header-pp" class="header-avatar" onclick="openEditProfile()">
+    </div>
+</header>
+
+<div class="container" id="main-app" style="display:none;">
+    <div id="page-home"> </div>
+</div>
+
+<div id="modal-profile" class="modal">
+    <div class="modal-box">
+        <h3>Profil Utilisateur</h3>
+        <div class="avatar-edit">
+            <img src="" id="modal-pp-view">
+            <label for="edit-avatar-file"><i class="fa-solid fa-camera"></i></label>
+            <input type="file" id="edit-avatar-file" style="display:none;" onchange="previewImage(this)">
+        </div>
+        <input type="text" id="edit-name" class="styled-input" placeholder="Anarana">
+        <input type="tel" id="edit-phone" class="styled-input" placeholder="Laharana">
+        <button class="btn-valider" id="btn-update-profile" onclick="updateProfile()">Tehirizina</button>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
