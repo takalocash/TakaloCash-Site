@@ -1,326 +1,422 @@
 /* ══════════════════════════════════════
-   TakaloCash — Feuille de style principale
+   TakaloCash — Logique principale (app.js)
    ══════════════════════════════════════ */
 
-:root {
-    --bg-body: #0d1117;
-    --bg-nav: #161b22;
-    --card: #1c2128;
-    --yellow: #fcd535;
-    --green: #2ebd85;
-    --red: #ff4d4d;
-    --gray: #848e9c;
-    --border: rgba(255, 255, 255, 0.1);
-    --grad-yellow: linear-gradient(135deg, #fcd535, #f7b500);
+// ── CONFIGURATION SUPABASE ────────────────────────────────────────────────────
+
+const supabaseClient = supabase.createClient(
+    "https://nyeopreahmajoisartoz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55ZW9wcmVhaG1ham9pc2FydG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NjgzMDgsImV4cCI6MjA5MDE0NDMwOH0.2ASTgZPKssdhGnFGcjit7BZOdEFOnFqIHkmt8w239EA"
+);
+
+// ── ÉTAT GLOBAL ───────────────────────────────────────────────────────────────
+
+let currentUserId   = null;
+let userSolde       = 0;
+let allTransactions = [];
+let currentFilter   = "Tous";
+let selectedMonth   = null;
+let currentMode     = "Envoyer";
+let currentMobileMode = "";
+
+// ── CONSTANTES ────────────────────────────────────────────────────────────────
+
+const TAUX = { "TRX": 150, "USDT": 4600 };
+const ADDR_RECEPT = {
+    "TRX":  "T-ADIRESY-TRX-AO-AMINAO",
+    "USDT": "T-ADIRESY-USDT-AO-AMINAO"
+};
+const MONTHS = ["Janv","Févr","Mars","Avr","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"];
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+
+async function handleLogin() {
+    const email    = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errEl    = document.getElementById('auth-error');
+    errEl.style.display = 'none';
+
+    if (!email || !password) {
+        errEl.innerText = "Veuillez remplir tous les champs.";
+        errEl.style.display = 'block';
+        return;
+    }
+
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) {
+        errEl.innerText = "Email ou mot de passe incorrect.";
+        errEl.style.display = 'block';
+        return;
+    }
+    initApp();
 }
 
-* {
-    box-sizing: border-box;
+async function initApp() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (user) {
+        currentUserId = user.id;
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('main-app').style.display      = 'block';
+        document.getElementById('nav-header').style.display    = 'block';
+        document.getElementById('app-footer').style.display    = 'block';
+        fetchData();
+    }
 }
 
-body {
-    margin: 0;
-    background: var(--bg-body);
-    font-family: 'Inter', sans-serif;
-    color: white;
-    overflow-x: hidden;
+async function logout() {
+    await supabaseClient.auth.signOut();
+    location.reload();
 }
 
-/* ── HEADER ─────────────────────────── */
-header {
-    background: var(--bg-nav);
-    padding: 18px 20px;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+// ── DATA ──────────────────────────────────────────────────────────────────────
+
+async function fetchData() {
+    try {
+        // Données utilisateur
+        const { data: u, error: uError } = await supabaseClient
+            .from('users')
+            .select('*')
+            .eq('id', currentUserId)
+            .single();
+
+        if (uError) throw uError;
+
+        if (u) {
+            userSolde = u.solde || 0;
+            updateSoldeUI();
+
+            const profileImg = u.avatar_url || "https://via.placeholder.com/100";
+            document.getElementById('header-pp').src = profileImg;
+
+            document.getElementById('side-name').innerText  = u.full_name || "Mpanjifa";
+            document.getElementById('side-id').innerText    = u.takalo_id || ("TK-" + u.id.substring(0, 4).toUpperCase());
+            document.getElementById('side-phone').innerText = u.phone || "Tsy misy laharana";
+            document.getElementById('side-email').innerText = u.email || "email@example.com";
+        }
+
+        // Transactions
+        const { data: ts, error: tError } = await supabaseClient
+            .from('transactions')
+            .select('*')
+            .eq('user_id', currentUserId)
+            .order('created_at', { ascending: false });
+
+        if (tError) throw tError;
+        allTransactions = ts || [];
+
+        renderPreview();
+        renderFullHistory();
+        renderMonthPicker();
+
+    } catch (err) {
+        console.error("Erreur fetchData:", err);
+    }
 }
 
-header i {
-    transition: 0.2s;
+function updateSoldeUI() {
+    document.getElementById('display-solde').innerText = userSolde.toLocaleString() + " Ar";
 }
 
-header i:active {
-    transform: scale(0.9);
-    color: var(--yellow) !important;
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+
+function showPage(p) {
+    document.getElementById('page-home').style.display    = p === 'home'    ? 'block' : 'none';
+    document.getElementById('page-history').style.display = p === 'history' ? 'block' : 'none';
+
+    if (p === 'history') {
+        document.getElementById('header-left').innerHTML =
+            `<i class="fa-solid fa-arrow-left" onclick="showPage('home')" style="color:var(--yellow); cursor:pointer;"></i> &nbsp; Historique`;
+        if (document.getElementById('sidebar').classList.contains('active')) toggleMenu();
+    } else {
+        document.getElementById('header-left').innerHTML =
+            `<span style="color:var(--yellow)">TAKALO</span>CASH`;
+    }
 }
 
-.header-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1.5px solid var(--yellow);
-    object-fit: cover;
-    cursor: pointer;
+function toggleMenu() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    sidebar.classList.toggle('active');
+    overlay.style.display = sidebar.classList.contains('active') ? 'block' : 'none';
 }
 
-/* ── LAYOUT ─────────────────────────── */
-.container {
-    max-width: 480px;
-    margin: auto;
-    padding: 15px;
+// ── TRANSACTION CRYPTO ────────────────────────────────────────────────────────
+
+function switchMode(m) {
+    currentMode = m;
+    document.getElementById('trans-title').innerText = m + " Crypto";
+    document.getElementById('service-starlink').style.display = m === 'Recevoir' ? 'none' : 'flex';
+
+    const inputAddr  = document.getElementById('input-addr');
+    const asset      = document.getElementById('crypto-select').value;
+    const labelRight = document.getElementById('label-right');
+    const unitSuffix = document.getElementById('unit-suffix');
+    const copyBtn    = document.getElementById('copy-btn');
+
+    if (m === 'Recevoir') {
+        labelRight.innerText    = "Quantité Crypto :";
+        unitSuffix.innerText    = asset;
+        inputAddr.value         = ADDR_RECEPT[asset];
+        inputAddr.readOnly      = true;
+        copyBtn.style.display   = "block";
+    } else {
+        labelRight.innerText    = "Montant (Ar) :";
+        unitSuffix.innerText    = "Ar";
+        inputAddr.value         = "";
+        inputAddr.readOnly      = false;
+        copyBtn.style.display   = "none";
+    }
+    updateCalc();
 }
 
-/* ── SOLDE ──────────────────────────── */
-.solde-card {
-    text-align: center;
-    padding: 35px 20px;
-    background: radial-gradient(circle at top right, #1c2128, #0d1117);
-    border-radius: 28px;
-    margin-bottom: 25px;
-    border: 1px solid var(--border);
+function updateCalc() {
+    const cry        = document.getElementById('crypto-select').value;
+    const val        = parseFloat(document.getElementById('input-main').value) || 0;
+    const resDisplay = document.getElementById('calc-res');
+    const unitSuffix = document.getElementById('unit-suffix');
+
+    if (currentMode === 'Envoyer') {
+        unitSuffix.innerText  = "Ar";
+        resDisplay.innerText  = (val / TAUX[cry]).toFixed(4) + " " + cry;
+    } else {
+        unitSuffix.innerText              = cry;
+        resDisplay.innerText              = (val * TAUX[cry]).toLocaleString() + " Ar";
+        document.getElementById('input-addr').value = ADDR_RECEPT[cry];
+    }
 }
 
-.solde-amount {
-    font-size: 38px;
-    font-weight: 800;
-    margin: 8px 0;
-    letter-spacing: -1px;
+async function executeTrans() {
+    const valInput  = document.getElementById('input-main');
+    const addrInput = document.getElementById('input-addr');
+    const val       = parseFloat(valInput.value);
+    const cry       = document.getElementById('crypto-select').value;
+
+    if (!val || val <= 0) return alert("Veuillez entrer un montant valide !");
+    if (currentMode === 'Envoyer' && !addrInput.value.trim()) return alert("Veuillez entrer l'adresse destinataire !");
+
+    const finalAr = currentMode === 'Envoyer' ? val : (val * TAUX[cry]);
+
+    if (currentMode === 'Envoyer') {
+        if (userSolde < finalAr) return alert("Solde insuffisant !");
+        userSolde -= finalAr;
+        updateSoldeUI();
+        await supabaseClient.from('users').update({ solde: userSolde }).eq('id', currentUserId);
+    }
+
+    try {
+        await supabaseClient.from('transactions').insert([{
+            user_id: currentUserId,
+            montant: finalAr,
+            service: currentMode + " " + cry,
+            status:  "En attente",
+            adresse: addrInput.value || "Non spécifié"
+        }]);
+
+        alert("Transaction enregistrée ! ✅");
+        valInput.value  = "";
+        addrInput.value = currentMode === 'Recevoir' ? ADDR_RECEPT[cry] : "";
+        updateCalc();
+        fetchData();
+    } catch (err) {
+        console.error(err);
+        alert("Une erreur est survenue lors de l'enregistrement.");
+    }
 }
 
-/* ── ACTIONS & SERVICES ─────────────── */
-.main-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin-bottom: 30px;
+function copyAddress() {
+    const addr = document.getElementById('input-addr').value;
+    navigator.clipboard.writeText(addr).then(() => alert("Adresse copiée !"));
 }
 
-.btn-action {
-    border: none;
-    padding: 18px;
-    border-radius: 16px;
-    font-weight: 700;
-    font-size: 15px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    font-family: 'Inter', sans-serif;
+// ── MOBILE MONEY ──────────────────────────────────────────────────────────────
+
+function openMobile(type) {
+    currentMobileMode = type;
+    document.getElementById('mob-title').innerText  = type + " MM";
+    document.getElementById('mob-amount').value     = "";
+    document.getElementById('mob-phone').value      = "";
+    document.getElementById('modal-mobile').style.display = 'flex';
+    if (document.getElementById('sidebar').classList.contains('active')) toggleMenu();
 }
 
-.btn-env {
-    background: var(--grad-yellow);
-    color: black;
+async function executeMobile() {
+    const amount = parseFloat(document.getElementById('mob-amount').value);
+    const phone  = document.getElementById('mob-phone').value.trim();
+
+    if (!amount || amount <= 0) return alert("Montant invalide !");
+    if (!phone)                 return alert("Numéro de compte requis !");
+    if (currentMobileMode === 'Retrait' && userSolde < amount) return alert("Solde insuffisant !");
+
+    try {
+        userSolde += currentMobileMode === 'Dépôt' ? amount : -amount;
+        updateSoldeUI();
+        await supabaseClient.from('users').update({ solde: userSolde }).eq('id', currentUserId);
+
+        await supabaseClient.from('transactions').insert([{
+            user_id: currentUserId,
+            montant: amount,
+            service: currentMobileMode,
+            status:  "En attente",
+            adresse: phone
+        }]);
+
+        alert(currentMobileMode + " enregistré ! ✅");
+        document.getElementById('modal-mobile').style.display = 'none';
+        fetchData();
+    } catch (err) {
+        console.error(err);
+        alert("Une erreur est survenue.");
+    }
 }
 
-.btn-rec {
-    background: var(--green);
-    color: white;
+// ── HISTORIQUE ────────────────────────────────────────────────────────────────
+
+function filterType(type, btn) {
+    currentFilter = type;
+    document.querySelectorAll('#type-filter .filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderFullHistory();
 }
 
-.services-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    margin-bottom: 30px;
+function renderMonthPicker() {
+    const container = document.getElementById('month-filter-container');
+    if (!container) return;
+    container.innerHTML = `<div class="filter-chip ${selectedMonth === null ? 'active' : ''}" onclick="filterMonth(null, this)">Tous</div>`;
+    const unique = [...new Set(allTransactions.map(t => new Date(t.created_at).getMonth()))].sort((a, b) => b - a);
+    unique.forEach(m => {
+        container.innerHTML += `<div class="filter-chip" onclick="filterMonth(${m}, this)">${MONTHS[m]}</div>`;
+    });
 }
 
-.service-item {
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 15px;
-    border-radius: 18px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    transition: 0.2s;
+function filterMonth(m, btn) {
+    selectedMonth = m;
+    document.querySelectorAll('#month-filter-container .filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderFullHistory();
 }
 
-.service-item:hover {
-    border-color: var(--yellow);
+function formatDate(dateStr) {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('fr-FR') + " à " + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
-.icon-box {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    background: #000;
-    border: 1px solid var(--border);
-    flex-shrink: 0;
+function renderPreview() {
+    const b = document.getElementById('history-preview-body');
+    if (!b) return;
+    b.innerHTML = "";
+    if (allTransactions.length === 0) {
+        b.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--gray); padding:20px;">Aucune transaction</td></tr>`;
+        return;
+    }
+    allTransactions.slice(0, 4).forEach(t => {
+        b.innerHTML += `
+            <tr>
+                <td><b>${t.service}</b><br><small style="color:var(--gray);">${formatDate(t.created_at)}</small></td>
+                <td style="text-align:right;"><b>${t.montant.toLocaleString()} Ar</b></td>
+            </tr>`;
+    });
 }
 
-/* ── FORMULAIRE TRANSACTION ─────────── */
-.trans-box {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    padding: 22px;
-    margin-bottom: 30px;
+function renderFullHistory() {
+    const b = document.getElementById('history-full-body');
+    if (!b) return;
+    b.innerHTML = "";
+
+    let filtered = allTransactions;
+    if (currentFilter !== 'Tous') filtered = filtered.filter(t => t.service.includes(currentFilter));
+    if (selectedMonth !== null)   filtered = filtered.filter(t => new Date(t.created_at).getMonth() === selectedMonth);
+
+    if (filtered.length === 0) {
+        b.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--gray); padding:20px;">Aucune transaction</td></tr>`;
+        return;
+    }
+    filtered.forEach(t => {
+        const color = t.status === 'confirmé' ? 'var(--green)' : 'var(--yellow)';
+        b.innerHTML += `
+            <tr>
+                <td><b>${t.service}</b><br><small style="color:var(--gray);">${formatDate(t.created_at)}</small></td>
+                <td style="text-align:right;">
+                    <b>${t.montant.toLocaleString()} Ar</b><br>
+                    <span style="color:${color}; font-size:10px; font-weight:700;">${t.status || 'En attente'}</span>
+                </td>
+            </tr>`;
+    });
 }
 
-.styled-input {
-    background: var(--bg-body);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px;
-    color: white;
-    width: 100%;
-    outline: none;
-    font-size: 14px;
-    margin-top: 5px;
-    font-family: 'Inter', sans-serif;
+// ── PROFIL ────────────────────────────────────────────────────────────────────
+
+function openEditProfile() {
+    const img    = document.getElementById('header-pp').src;
+    const name   = document.getElementById('side-name').innerText;
+    const email  = document.getElementById('side-email').innerText;
+    const phone  = document.getElementById('side-phone').innerText;
+    const idUser = document.getElementById('side-id').innerText;
+
+    document.getElementById('modal-pp-view').src          = img;
+    document.getElementById('modal-name-view').innerText  = name;
+    document.getElementById('modal-id-view').innerText    = idUser;
+    document.getElementById('edit-name').value  = name  !== "Mpanjifa"           ? name  : "";
+    document.getElementById('edit-email').value = email !== "email@example.com"  ? email : "";
+    document.getElementById('edit-phone').value = phone !== "Tsy misy laharana"  ? phone : "";
+
+    document.getElementById('modal-profile').style.display = 'flex';
+    if (document.getElementById('sidebar').classList.contains('active')) toggleMenu();
 }
 
-.styled-input:focus {
-    border-color: var(--yellow);
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => { document.getElementById('modal-pp-view').src = e.target.result; };
+        reader.readAsDataURL(input.files[0]);
+    }
 }
 
-.btn-valider {
-    width: 100%;
-    background: var(--grad-yellow);
-    border: none;
-    padding: 18px;
-    border-radius: 14px;
-    font-weight: 800;
-    cursor: pointer;
-    color: black;
-    margin-top: 15px;
-    font-size: 16px;
-    font-family: 'Inter', sans-serif;
-    transition: opacity 0.2s;
+async function updateProfile() {
+    const btn      = document.getElementById('btn-update-profile');
+    const newName  = document.getElementById('edit-name').value.trim();
+    const newPhone = document.getElementById('edit-phone').value.trim();
+    const fileInput = document.getElementById('edit-avatar-file');
+
+    btn.innerText = "Andraso kely...";
+    btn.disabled  = true;
+
+    try {
+        let avatarUrl = document.getElementById('modal-pp-view').src;
+
+        if (fileInput.files && fileInput.files[0]) {
+            const file     = fileInput.files[0];
+            const fileExt  = file.name.split('.').pop();
+            const fileName = `${currentUserId}-${Date.now()}.${fileExt}`;
+            const filePath = `avatars/${fileName}`;
+
+            const { error: uploadError } = await supabaseClient.storage
+                .from('profiles')
+                .upload(filePath, file);
+            if (uploadError) throw uploadError;
+
+            const { data: publicData } = supabaseClient.storage
+                .from('profiles')
+                .getPublicUrl(filePath);
+            avatarUrl = publicData.publicUrl;
+        }
+
+        const { error } = await supabaseClient
+            .from('users')
+            .update({ full_name: newName, phone: newPhone, avatar_url: avatarUrl })
+            .eq('id', currentUserId);
+        if (error) throw error;
+
+        alert("Voatahiry ny fanovana! ✅");
+        document.getElementById('modal-profile').style.display = 'none';
+        fetchData();
+    } catch (err) {
+        console.error(err);
+        alert("Nisy olana: " + err.message);
+    } finally {
+        btn.innerText = "Tehirizina";
+        btn.disabled  = false;
+    }
 }
 
-.btn-valider:hover {
-    opacity: 0.9;
-}
-
-.btn-valider:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* ── HISTORIQUE ─────────────────────── */
-.scroll-filter {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 5px 0 15px 0;
-    scrollbar-width: none;
-}
-
-.scroll-filter::-webkit-scrollbar {
-    display: none;
-}
-
-.filter-chip {
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 8px 18px;
-    border-radius: 25px;
-    font-size: 11px;
-    white-space: nowrap;
-    cursor: pointer;
-    color: var(--gray);
-    font-weight: 600;
-    transition: 0.2s;
-}
-
-.filter-chip.active {
-    background: var(--yellow);
-    color: black;
-    border-color: var(--yellow);
-}
-
-.history-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.history-table td {
-    padding: 16px 0;
-    border-bottom: 1px solid var(--border);
-}
-
-/* ── SIDEBAR ────────────────────────── */
-.sidebar {
-    position: fixed;
-    top: 0;
-    right: -100%;
-    width: 80%;
-    max-width: 320px;
-    height: 100%;
-    background: var(--bg-nav);
-    z-index: 2000;
-    transition: 0.4s;
-    padding: 30px;
-    overflow-y: auto;
-}
-
-.sidebar.active {
-    right: 0;
-}
-
-.overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.85);
-    display: none;
-    z-index: 1500;
-    backdrop-filter: blur(5px);
-}
-
-/* ── MODALS ─────────────────────────── */
-.modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.9);
-    z-index: 5000;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.modal-box {
-    background: var(--card);
-    padding: 30px;
-    border-radius: 28px;
-    width: 100%;
-    max-width: 340px;
-    border: 1px solid var(--border);
-}
-
-/* ── FOOTER ─────────────────────────── */
-footer {
-    background: var(--bg-nav);
-    padding: 40px 20px;
-    border-top: 1px solid var(--border);
-    margin-top: 50px;
-}
-
-.footer-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 25px;
-    margin-bottom: 30px;
-}
-
-.footer-link {
-    color: var(--gray);
-    text-decoration: none;
-    font-size: 12px;
-    display: block;
-    margin-bottom: 10px;
-    transition: color 0.2s;
-}
-
-.footer-link:hover {
-    color: white;
-}
-
-.lang-select {
-    background: transparent;
-    color: var(--gray);
-    border: none;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    outline: none;
-}
+// ── DÉMARRAGE ─────────────────────────────────────────────────────────────────
+initApp();
