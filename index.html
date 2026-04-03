@@ -4,39 +4,265 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TakaloCash Premium</title>
+
+    <!-- Polices & icônes -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Style principal -->
     <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase SDK (chargé avant app.js) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<div id="auth-container"> </div>
+<!-- ══ ÉCRAN DE CONNEXION ══════════════════════════════════════════════════════ -->
+<div id="auth-container" style="position:fixed; inset:0; background:var(--bg-body); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--card); padding:40px 30px; border-radius:30px; width:100%; max-width:320px; text-align:center; border:1px solid var(--border);">
+        <h1 style="font-weight:900; margin-bottom:30px;">
+            <span style="color:var(--yellow)">TAKALO</span>CASH
+        </h1>
+        <input type="email" id="auth-email" class="styled-input" placeholder="Adresse Email">
+        <input type="password" id="auth-password" class="styled-input" placeholder="Mot de passe" style="margin-top:15px;">
+        <button class="btn-valider" onclick="handleLogin()">Se connecter</button>
+        <p id="auth-error" style="color:var(--red); font-size:13px; margin-top:10px; display:none;"></p>
+    </div>
+</div>
 
+<!-- ══ HEADER ══════════════════════════════════════════════════════════════════ -->
 <header id="nav-header" style="display:none;">
-    <div class="header-content">
-        <div id="header-left" onclick="showPage('home')">TAKALOCASH</div>
-        <img src="https://via.placeholder.com/32" id="header-pp" class="header-avatar" onclick="openEditProfile()">
+    <div style="max-width:480px; margin:auto; display:flex; justify-content:space-between; align-items:center;">
+        <div id="header-left" style="font-weight:900; font-size:22px; letter-spacing:-1px; cursor:pointer;" onclick="showPage('home')">
+            <span style="color:var(--yellow)">TAKALO</span>CASH
+        </div>
+        <div style="display:flex; align-items:center; gap:18px;">
+            <div style="position:relative; cursor:pointer;">
+                <i class="fa-solid fa-bell" style="font-size:20px; color:var(--gray);"></i>
+                <span style="position:absolute; top:-2px; right:-2px; width:8px; height:8px; background:var(--red); border-radius:50%; border:2px solid var(--bg-nav);"></span>
+            </div>
+            <img src="https://via.placeholder.com/32" id="header-pp" class="header-avatar" onclick="openEditProfile()">
+            <i class="fa-solid fa-bars-staggered" style="font-size:24px; cursor:pointer; color:var(--yellow);" onclick="toggleMenu()"></i>
+        </div>
     </div>
 </header>
 
-<div class="container" id="main-app" style="display:none;">
-    <div id="page-home"> </div>
+<!-- ══ OVERLAY & SIDEBAR ═══════════════════════════════════════════════════════ -->
+<div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+<div class="sidebar" id="sidebar">
+    <div style="text-align:right; margin-bottom:20px;">
+        <i class="fa-solid fa-xmark" onclick="toggleMenu()" style="font-size:20px; cursor:pointer; color:var(--gray);"></i>
+    </div>
+
+    <div onclick="openEditProfile()" style="padding:15px 0; border-bottom:1px solid var(--border); cursor:pointer; display:flex; align-items:center; gap:12px; color:var(--yellow);">
+        <i class="fa-solid fa-user-gear"></i> <b>Mon Profil</b>
+    </div>
+    <div onclick="showPage('history')" style="padding:15px 0; border-bottom:1px solid var(--border); cursor:pointer;">
+        <i class="fa-solid fa-clock-rotate-left"></i> &nbsp; Historique
+    </div>
+    <div onclick="openMobile('Dépôt')" style="padding:15px 0; border-bottom:1px solid var(--border); cursor:pointer;">
+        <i class="fa-solid fa-plus-circle" style="color:var(--green);"></i> &nbsp; Dépôt MM
+    </div>
+    <div onclick="openMobile('Retrait')" style="padding:15px 0; border-bottom:1px solid var(--border); cursor:pointer;">
+        <i class="fa-solid fa-minus-circle" style="color:var(--red);"></i> &nbsp; Retrait MM
+    </div>
+    <div onclick="logout()" style="padding:20px 0; color:var(--red); cursor:pointer; margin-top:20px;">
+        <i class="fa-solid fa-power-off"></i> &nbsp; Déconnexion
+    </div>
+
+    <!-- Données cachées utilisées par le JS pour remplir le modal profil -->
+    <span id="side-name"  style="display:none;">Mpanjifa</span>
+    <span id="side-id"    style="display:none;">TK-0000</span>
+    <span id="side-email" style="display:none;">email@example.com</span>
+    <span id="side-phone" style="display:none;">Tsy misy laharana</span>
 </div>
 
-<div id="modal-profile" class="modal">
-    <div class="modal-box">
-        <h3>Profil Utilisateur</h3>
-        <div class="avatar-edit">
-            <img src="" id="modal-pp-view">
-            <label for="edit-avatar-file"><i class="fa-solid fa-camera"></i></label>
-            <input type="file" id="edit-avatar-file" style="display:none;" onchange="previewImage(this)">
+<!-- ══ APPLICATION PRINCIPALE ══════════════════════════════════════════════════ -->
+<div class="container" id="main-app" style="display:none;">
+
+    <!-- ── PAGE ACCUEIL ──────────────────────────────────────────────────────── -->
+    <div id="page-home">
+
+        <!-- Solde -->
+        <div class="solde-card">
+            <div style="color:var(--gray); font-size:13px; font-weight:600; text-transform:uppercase;">Solde Disponible</div>
+            <h1 class="solde-amount" id="display-solde">0 Ar</h1>
         </div>
-        <input type="text" id="edit-name" class="styled-input" placeholder="Anarana">
-        <input type="tel" id="edit-phone" class="styled-input" placeholder="Laharana">
-        <button class="btn-valider" id="btn-update-profile" onclick="updateProfile()">Tehirizina</button>
+
+        <!-- Boutons Envoyer / Recevoir -->
+        <div class="main-actions">
+            <button class="btn-action btn-env" onclick="switchMode('Envoyer')">
+                <i class="fa-solid fa-paper-plane"></i> Envoyer
+            </button>
+            <button class="btn-action btn-rec" onclick="switchMode('Recevoir')">
+                <i class="fa-solid fa-qrcode"></i> Recevoir
+            </button>
+        </div>
+
+        <!-- Grille services -->
+        <div class="services-grid">
+            <div class="service-item" onclick="switchMode('Envoyer')">
+                <div class="icon-box" style="color:#f3ba2f;"><i class="fa-brands fa-bitcoin"></i></div>
+                <div><b>Crypto</b><br><small style="color:var(--gray);">TRX, BTC, USDT...</small></div>
+            </div>
+            <div class="service-item" onclick="switchMode('Envoyer')">
+                <div class="icon-box" style="color:#8132ad;"><i class="fa-solid fa-wallet"></i></div>
+                <div><b>Portefeuille</b><br><small style="color:var(--gray);">Skrill, Neteller...</small></div>
+            </div>
+            <div class="service-item" onclick="switchMode('Envoyer')">
+                <div class="icon-box" style="color:#00a3da; background:white; padding:4px;">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/14/1xBet_logo.svg" width="28">
+                </div>
+                <div><b>1xBet</b><br><small style="color:var(--gray);">Dépôt, Retrait</small></div>
+            </div>
+            <div class="service-item" id="service-starlink" onclick="switchMode('Envoyer')">
+                <div class="icon-box" style="color:white;"><i class="fa-solid fa-satellite-dish"></i></div>
+                <div><b>Starlink</b><br><small style="color:var(--gray);">Abonnement</small></div>
+            </div>
+        </div>
+
+        <!-- Formulaire transaction -->
+        <div class="trans-box">
+            <b id="trans-title" style="color:var(--yellow); font-size:18px; display:block; margin-bottom:20px;">Envoyer Crypto</b>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                <div>
+                    <label style="font-size:11px; color:var(--gray);">Asset :</label>
+                    <select id="crypto-select" class="styled-input" onchange="updateCalc()">
+                        <option value="TRX">TRX (TRC20)</option>
+                        <option value="USDT">USDT (TRC20)</option>
+                    </select>
+                </div>
+                <div>
+                    <label id="label-right" style="font-size:11px; color:var(--gray);">Montant (Ar) :</label>
+                    <div style="position:relative; display:flex; align-items:center;">
+                        <input type="number" id="input-main" class="styled-input" placeholder="0" oninput="updateCalc()" style="padding-right:45px;">
+                        <span id="unit-suffix" style="position:absolute; right:12px; color:var(--gray); font-size:12px; font-weight:700; pointer-events:none;">Ar</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <label id="label-addr-text" style="font-size:11px; color:var(--gray);">Adresse destinataire :</label>
+                <div style="position:relative; display:flex; align-items:center;">
+                    <input type="text" id="input-addr" class="styled-input" placeholder="Saisir l'adresse" style="padding-right:45px;">
+                    <i class="fa-solid fa-copy" id="copy-btn" onclick="copyAddress()" style="position:absolute; right:12px; top:18px; color:var(--yellow); cursor:pointer; font-size:18px; display:none;"></i>
+                </div>
+            </div>
+
+            <div style="margin-top:15px; padding:12px; background:rgba(255,255,255,0.04); border-radius:10px; font-size:13px; color:var(--gray);">
+                Équivalent : <span id="calc-res" style="color:var(--yellow); font-weight:700;">0 TRX</span>
+            </div>
+
+            <button class="btn-valider" onclick="executeTrans()">Valider la transaction</button>
+        </div>
+
+        <!-- Aperçu historique -->
+        <div class="trans-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <b style="color:var(--gray); font-size:14px;">Activités récentes</b>
+                <small onclick="showPage('history')" style="color:var(--yellow); cursor:pointer; font-weight:700;">Tout voir</small>
+            </div>
+            <table class="history-table"><tbody id="history-preview-body"></tbody></table>
+        </div>
+
+    </div><!-- fin #page-home -->
+
+    <!-- ── PAGE HISTORIQUE ───────────────────────────────────────────────────── -->
+    <div id="page-history" style="display:none;">
+        <div class="scroll-filter" id="type-filter">
+            <div class="filter-chip active" onclick="filterType('Tous', this)">Tous</div>
+            <div class="filter-chip" onclick="filterType('Envoyer', this)">Envoyer</div>
+            <div class="filter-chip" onclick="filterType('Recevoir', this)">Recevoir</div>
+            <div class="filter-chip" onclick="filterType('Dépôt', this)">Dépôt</div>
+            <div class="filter-chip" onclick="filterType('Retrait', this)">Retrait</div>
+        </div>
+        <div class="scroll-filter" id="month-filter-container"></div>
+        <table class="history-table"><tbody id="history-full-body"></tbody></table>
+    </div>
+
+</div><!-- fin .container -->
+
+<!-- ══ MODAL PROFIL ════════════════════════════════════════════════════════════ -->
+<div id="modal-profile" class="modal" style="backdrop-filter:blur(10px);">
+    <div class="modal-box" style="text-align:center;">
+        <h3 style="color:var(--yellow); margin-top:0;">Profil Utilisateur</h3>
+
+        <div style="position:relative; display:inline-block; margin-bottom:15px;">
+            <img src="https://via.placeholder.com/100" id="modal-pp-view"
+                 style="width:100px; height:100px; border-radius:50%; border:3px solid var(--yellow); object-fit:cover;">
+            <label for="edit-avatar-file"
+                   style="position:absolute; bottom:5px; right:0; background:var(--yellow); color:black;
+                          width:28px; height:28px; border-radius:50%; display:flex; align-items:center;
+                          justify-content:center; cursor:pointer; border:3px solid var(--card);">
+                <i class="fa-solid fa-camera" style="font-size:11px;"></i>
+            </label>
+            <input type="file" id="edit-avatar-file" accept="image/*" style="display:none;" onchange="previewImage(this)">
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <b id="modal-name-view" style="font-size:18px; display:block;">Mpanjifa</b>
+            <small id="modal-id-view" style="color:var(--yellow);">ID: TK-0000</small>
+        </div>
+
+        <div style="text-align:left;">
+            <label style="font-size:11px; color:var(--gray);">Anarana feno :</label>
+            <input type="text" id="edit-name" class="styled-input" style="margin-bottom:10px;">
+            <label style="font-size:11px; color:var(--gray);">Email :</label>
+            <input type="email" id="edit-email" class="styled-input" style="margin-bottom:10px;">
+            <label style="font-size:11px; color:var(--gray);">Laharana finday :</label>
+            <input type="tel" id="edit-phone" class="styled-input">
+        </div>
+
+        <button class="btn-valider" id="btn-update-profile" onclick="updateProfile()" style="margin-top:20px;">Tehirizina</button>
+        <p onclick="document.getElementById('modal-profile').style.display='none'"
+           style="text-align:center; cursor:pointer; color:var(--gray); margin-top:15px; font-size:13px;">Hidio</p>
     </div>
 </div>
 
-<script src="script.js"></script>
+<!-- ══ MODAL MOBILE MONEY ═══════════════════════════════════════════════════════ -->
+<div id="modal-mobile" class="modal">
+    <div class="modal-box">
+        <h3 id="mob-title" style="color:var(--yellow); margin-top:0;">Dépôt MM</h3>
+        <input type="number" id="mob-amount" class="styled-input" placeholder="Montant en Ar">
+        <input type="tel"    id="mob-phone"  class="styled-input" placeholder="Numéro de compte" style="margin-top:12px;">
+        <button class="btn-valider" onclick="executeMobile()">Valider</button>
+        <p onclick="document.getElementById('modal-mobile').style.display='none'"
+           style="text-align:center; cursor:pointer; color:var(--gray); margin-top:20px; font-size:13px;">Annuler</p>
+    </div>
+</div>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════════════════ -->
+<footer id="app-footer" style="display:none;">
+    <div style="max-width:480px; margin:auto;">
+        <div class="footer-grid">
+            <div>
+                <b style="color:white; font-size:14px; display:block; margin-bottom:15px;">Informations</b>
+                <a href="#" class="footer-link">Conditions d'utilisation</a>
+                <a href="#" class="footer-link">Confidentialité</a>
+                <a href="#" class="footer-link">Cookies</a>
+            </div>
+            <div>
+                <b style="color:white; font-size:14px; display:block; margin-bottom:15px;">Support</b>
+                <a href="#" class="footer-link"><i class="fa-brands fa-whatsapp"></i> WhatsApp Direct</a>
+                <a href="#" class="footer-link">Centre d'aide</a>
+                <div style="display:flex; align-items:center; gap:8px; color:var(--gray); font-size:12px; margin-top:10px;">
+                    <span>Langue :</span>
+                    <select class="lang-select">
+                        <option>Français (FR)</option>
+                        <option>Malagasy (MG)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div style="text-align:center; padding-top:20px; border-top:1px solid var(--border); font-size:11px; color:var(--gray);">
+            © 2026 TakaloCash Madagascar. Tous droits réservés.
+        </div>
+    </div>
+</footer>
+
+<!-- Script principal (après le DOM) -->
+<script src="app.js"></script>
+
 </body>
-</html>
+                </html>
