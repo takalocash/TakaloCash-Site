@@ -34,6 +34,8 @@ async function handleLogin() {
     const email    = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     const errEl    = document.getElementById('auth-error');
+    const btn      = document.getElementById('btn-login');
+
     errEl.style.display = 'none';
 
     if (!email || !password) {
@@ -42,25 +44,54 @@ async function handleLogin() {
         return;
     }
 
+    // Afficher le chargement
+    btn.innerText = "Connexion...";
+    btn.disabled  = true;
+
     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
     if (error) {
         errEl.innerText = "Email ou mot de passe incorrect.";
         errEl.style.display = 'block';
+        btn.innerText = "Se connecter";
+        btn.disabled  = false;
         return;
     }
-    initApp();
+
+    // Succès → aller vers l'accueil
+    showApp();
 }
 
 async function initApp() {
+    // Vérifier si une session existe déjà (ex: rechargement de page)
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (user) {
         currentUserId = user.id;
-        document.getElementById('auth-container').style.display = 'none';
-        document.getElementById('main-app').style.display      = 'block';
-        document.getElementById('nav-header').style.display    = 'block';
-        document.getElementById('app-footer').style.display    = 'block';
-        fetchData();
+        showApp();
     }
+}
+
+function showApp() {
+    // Transition : masquer login, afficher app
+    const authEl = document.getElementById('auth-container');
+    authEl.style.opacity    = '0';
+    authEl.style.transition = 'opacity 0.3s';
+
+    setTimeout(() => {
+        authEl.style.display = 'none';
+        document.getElementById('main-app').style.display   = 'block';
+        document.getElementById('nav-header').style.display = 'block';
+        document.getElementById('app-footer').style.display = 'block';
+
+        // S'assurer que l'ID est bien défini avant fetchData
+        supabaseClient.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+                currentUserId = user.id;
+                fetchData();
+                showPage('home');
+            }
+        });
+    }, 300);
 }
 
 async function logout() {
